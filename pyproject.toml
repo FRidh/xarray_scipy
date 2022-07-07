@@ -1,0 +1,22 @@
+[build-system]
+requires = ["flit_core>=3.2"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "xarray_scipy"
+version = "0.1.0"
+author = "Frederik Rietdijk"
+description = "xarray and dask wrapped scipy"
+dependencies = [
+    "scipy",
+    "xarray",
+]
+[project.optional-dependencies]
+dask = [
+    "dask"
+]
+[project.license]
+file = "LICENSE"
+[project.urls]
+"Homepage" = "https://github.com/FRidh/xarray_scipy"
+"Bug Tracker" = "https://github.com/FRidh/xarray_scipy/issues"
