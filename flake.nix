@@ -5,12 +5,14 @@
   inputs.utils.url = "github:numtide/flake-utils";
 
   outputs = { self, nixpkgs, utils }: {
-    overlay = final: prev: {
-      pythonPackagesOverrides = (prev.pythonPackagesOverrides or []) ++ [
-        (self: super: {
-          xarray-scipy = self.callPackage ./. {};
-        })
-      ];
+    overlays = {
+      default = final: prev: {
+        pythonPackagesOverrides = (prev.pythonPackagesOverrides or []) ++ [
+          (self: super: {
+            xarray-scipy = self.callPackage ./. {};
+          })
+        ];
+      };
     };
   } // (utils.lib.eachSystem [ "x86_64-linux" ] (system: let
     # Our own overlay does not get applied to nixpkgs because that would lead to
@@ -18,7 +20,7 @@
     pkgs = import nixpkgs {
       inherit system;
       overlays = [
-          self.overlay
+          self.overlays.default
       ];
     };
     python = let
@@ -34,16 +36,18 @@
       # and additional dev inputs.
       devEnv = python.withPackages(_: pkg.allInputs);
       pkg = python.pkgs.xarray-scipy;
+      default = pkg;
     };
 
-    defaultPackage = python.pkgs.xarray-scipy;
-    devShell = pkgs.mkShell {
-      nativeBuildInputs = [
-        packages.devEnv
-      ];
-      shellHook = ''
-        export PYTHONPATH=$(readlink -f .):$PYTHONPATH
-      '';
+    devShells = {
+      default = pkgs.mkShell {
+        nativeBuildInputs = [
+          packages.devEnv
+        ];
+        shellHook = ''
+          export PYTHONPATH=$(readlink -f .):$PYTHONPATH
+        '';
+      };
     };
   }));
 }
