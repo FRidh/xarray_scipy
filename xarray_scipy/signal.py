@@ -1,3 +1,4 @@
+import numpy as np
 import scipy.signal
 import xarray as xr
 
@@ -6,6 +7,66 @@ def _keep_attrs(keep_attrs):
     if keep_attrs is None:
         keep_attrs = xr.core.options._get_keep_attrs(default=False)
     return keep_attrs
+
+
+def convolve(in1, in2, mode="full", method="auto"):
+    return _convolve(in1, in2, dims=None, mode=mode, method=method)
+
+
+def fftconvolve(in1, in2, dims=None, mode="full"):
+    return _convolve(in1, in2, dims=dims, mode=mode, method="fft")
+
+
+def _convolve(in1, in2, dims, mode, method):
+
+    if not (set(in1.dims) == set(in2.dims)):
+        raise ValueError(f"in1 and in2 do not have the same dims")
+
+    if dims is None:
+        dims = list(set(in1.dims) & set(in2.dims))
+    else:
+        dims_ = set(dims)
+        if not set(in1.dims) >= dims_:
+            raise ValueError(f"in1 is missing dims {dims_ - set(in1.dims)}")
+        elif not set(in1.dims) >= dims_:
+            raise ValueError(f"in2 is missing dims {dims_ - set(in2.dims)}")
+
+    def _compute_output_size(dim):
+        if mode == "full":
+            return len(in1[dim]) + len(in2[dim]) - 1
+        elif mode == "same":
+            return len(in1[dim])
+        elif mode == "valid":
+            return NotImplemented
+
+    output_sizes = {dim: _compute_output_size(dim) for dim in dims}
+
+    in1 = in1.transpose(..., *dims)
+    in2 = in2.transpose(..., *dims)
+
+    result = xr.apply_ufunc(
+        scipy.signal.fftconvolve,
+        in1,
+        in2,
+        kwargs={
+            "mode": mode,
+            "axes": np.array(in1.get_axis_num(dims)),
+        },
+        input_core_dims=[
+            dims,
+            dims,
+        ],
+        output_core_dims=[
+            dims,
+        ],
+        exclude_dims=set(dims),
+        dask="parallelized",
+        dask_gufunc_kwargs={
+            "allow_rechunk": True,
+            "output_sizes": output_sizes,
+        },
+    )
+    return result
 
 
 def decimate(
@@ -75,8 +136,10 @@ def hilbert(x: xr.DataArray, dim: str, N: int = None, keep_attrs=None) -> xr.Dat
         output_core_dims=[
             (dim,),
         ],
-        output_sizes={
-            dim: N if N is not None else len(x[dim]),
+        dask_gufunc_kwargs={
+            "output_sizes": {
+                dim: N if N is not None else len(x[dim]),
+            },
         },
         dask="parallelized",
         keep_attrs=_keep_attrs(keep_attrs),

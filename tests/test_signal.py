@@ -4,7 +4,7 @@ import xarray as xr
 
 import pytest
 
-from xarray_scipy.signal import decimate, hilbert, peak_widths
+from xarray_scipy.signal import convolve, decimate, fftconvolve, hilbert, peak_widths
 
 
 @pytest.fixture(params=[True, False], ids=["With dask", "Without dask"])
@@ -39,6 +39,38 @@ def signal(dask, nchannels):
         )
 
     return signal
+
+
+@pytest.fixture(params=["full", "same"], ids=["full", "same"])
+def convolve_mode(request):
+    return request.param
+
+
+def test_fftconvolve(signal, convolve_mode):
+
+    result = fftconvolve(signal, signal, mode=convolve_mode)
+    if convolve_mode == "full":
+        assert len(result.time) == len(signal.time) + len(signal.time) - 1
+    elif convolve_mode == "same":
+        assert len(result.time) == len(signal.time)
+
+    assert set(signal.dims) == set(result.dims)
+
+
+@pytest.fixture(params=[["time"], None])
+def dims(request):
+    return request.param
+
+
+def test_fftconvolve(signal, convolve_mode, dims):
+
+    result = fftconvolve(signal, signal, dims=dims, mode=convolve_mode)
+    if convolve_mode == "full":
+        assert len(result.time) == len(signal.time) + len(signal.time) - 1
+    elif convolve_mode == "same":
+        assert len(result.time) == len(signal.time)
+
+    assert set(signal.dims) == set(result.dims)
 
 
 def test_decimate(signal, nchannels):
@@ -285,4 +317,4 @@ def test_hilbert():
     signal = A * np.sin(2.0 * np.pi * f * np.arange(nsamples) / fs)
     signal = xr.DataArray(signal, dims=["time"])
     result = hilbert(signal, dim="time")
-    assert np.allclose(np.abs(result).data, np.ones(nsamples)*A)
+    assert np.allclose(np.abs(result).data, np.ones(nsamples) * A)
