@@ -1,3 +1,4 @@
+from typing import List, Union
 import numpy as np
 import scipy.signal
 import xarray as xr
@@ -9,15 +10,28 @@ def _keep_attrs(keep_attrs):
     return keep_attrs
 
 
-def convolve(in1, in2, mode="full", method="auto"):
+def convolve(
+    in1: xr.DataArray, in2: xr.DataArray, mode: str = "full", method: str = "auto"
+) -> xr.DataArray:
     return _convolve(in1, in2, dims=None, mode=mode, method=method)
 
 
-def fftconvolve(in1, in2, dims=None, mode="full"):
+def fftconvolve(
+    in1: xr.DataArray,
+    in2: xr.DataArray,
+    dims: Union[None, List[str]] = None,
+    mode: str = "full",
+) -> xr.DataArray:
     return _convolve(in1, in2, dims=dims, mode=mode, method="fft")
 
 
-def _convolve(in1, in2, dims, mode, method):
+def _convolve(
+    in1: xr.DataArray,
+    in2: xr.DataArray,
+    dims: Union[None, List[str]],
+    mode: str = "full",
+    method: str = "auto",
+) -> xr.DataArray:
 
     if not (set(in1.dims) == set(in2.dims)):
         raise ValueError(f"in1 and in2 do not have the same dims")
