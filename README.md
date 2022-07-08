@@ -9,4 +9,4 @@ or alternative interfaces are out of scope and will not be accepted.
 
 ## Dask support
 
-The aim is `dask` support for all functions using `xr.apply_ufunc`, either with `native` or `parallelized`.
+The aim is `dask` support for all functions using `xr.apply_ufunc`, either with `allowed` or `parallelized`.
