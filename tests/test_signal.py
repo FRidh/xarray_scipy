@@ -472,3 +472,34 @@ def test_hilbert():
     signal = xr.DataArray(signal, dims=["time"])
     result = hilbert(signal, dim="time")
     assert np.allclose(np.abs(result).data, np.ones(nsamples) * A)
+
+
+def test_hilbert__N():
+    duration = 10.0
+    fs = 8000.0
+    nsamples = int(fs * duration)
+    f = 100.0
+    A = 2.0
+    N = 100
+    dim = "time"
+    signal = A * np.sin(2.0 * np.pi * f * np.arange(nsamples) / fs)
+    signal = xr.DataArray(signal, dims=[dim], coords={dim: np.arange(nsamples)})
+    result = hilbert(signal, N=N, dim=dim)
+    assert len(result) == N
+    assert dim in result.coords
+
+
+def test_hilbert__N_without_coords():
+
+    duration = 10.0
+    fs = 8000.0
+    nsamples = int(fs * duration)
+    f = 100.0
+    A = 2.0
+    N = 100
+    dim = "time"
+    signal = A * np.sin(2.0 * np.pi * f * np.arange(nsamples) / fs)
+    signal = xr.DataArray(signal, dims=[dim])
+    result = hilbert(signal, N=N, dim=dim)
+    assert len(result) == N
+    assert dim not in result.coords

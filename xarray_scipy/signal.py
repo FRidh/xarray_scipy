@@ -260,6 +260,11 @@ def hilbert(x: xr.DataArray, dim: str, N: int = None, keep_attrs=None) -> xr.Dat
 
     """
 
+    exclude_dims = []
+
+    if N is not None:
+        exclude_dims.append(dim)
+
     result = xr.apply_ufunc(
         scipy.signal.hilbert,
         x,
@@ -269,11 +274,7 @@ def hilbert(x: xr.DataArray, dim: str, N: int = None, keep_attrs=None) -> xr.Dat
         input_core_dims=[
             (dim,),
         ],
-        exclude_dims=set(
-            [
-                dim,
-            ]
-        ),
+        exclude_dims=set(exclude_dims),
         output_core_dims=[
             (dim,),
         ],
@@ -282,9 +283,23 @@ def hilbert(x: xr.DataArray, dim: str, N: int = None, keep_attrs=None) -> xr.Dat
                 dim: N if N is not None else len(x[dim]),
             },
         },
-        dask="parallelized",
+        dask="parallelized",  # np.asarray is used within scipy.signal.hilbert
         keep_attrs=_keep_attrs(keep_attrs),
     )
+
+    if N is not None and dim in x.coords:
+
+        def linspace(arr, N):
+            # np.linspace does not function with datetimes
+            arr = np.asarray(arr)
+            delta = arr.max() - arr.min()
+            result = np.arange(N) * delta / N
+            return result
+
+        result = result.assign_coords(
+            {dim: x.coords[dim].interp({dim: linspace(x.coords[dim], N)})}
+        )
+
     return result
 
 
