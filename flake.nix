@@ -10,6 +10,15 @@
         pythonPackagesOverrides = (prev.pythonPackagesOverrides or []) ++ [
           (self: super: {
             xarray-scipy = self.callPackage ./. {};
+            # xarray = super.xarray.overridePythonAttrs(oldAttrs: rec {
+            #   version = src.rev;
+            #   src = final.fetchFromGitHub {
+            #     owner = "pydata";
+            #     repo = "xarray";
+            #     rev = "8f6873026587f30f0ac10af740ebe947797208a1";
+            #     hash = "sha256-CTvVTOs2zOqX1NJB4LUP6EDY8RZcrOQaMvvhZktCl+k=";
+            #   };
+            # });
           })
         ];
       };
