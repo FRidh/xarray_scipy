@@ -4,6 +4,8 @@ import xarray as xr
 
 import pytest
 
+import xarray_scipy.signal
+
 from xarray_scipy.signal import convolve, decimate, fftconvolve, hilbert, peak_widths
 
 
@@ -305,6 +307,54 @@ def test_peak_widths__multiple_peaks_3d(signal, bandwidth):
     assert "peak" in widths.coords
     assert "time" in widths.coords
     assert "time" in widths.coords
+
+
+class TestFFT:
+    @pytest.fixture
+    def signal(self):
+        duration = 10.0
+        fs = 8000.0
+        nsamples = int(fs * duration)
+        f = 100.0
+        A = 2.0
+        dim = "time"
+        signal = A * np.sin(2.0 * np.pi * f * np.arange(nsamples) / fs)
+        signal = xr.DataArray(
+            signal, dims=[dim], coords={dim: np.arange(nsamples)}
+        ).expand_dims("channel")
+        return signal
+
+    def test_fft(self, signal, dask):
+        n = 100
+        dim = "time"
+        newdim = "frequency"
+        if dask:
+            signal = signal.chunk({"channel": 1})
+        result = xarray_scipy.signal.fft(signal, n=n, dim=dim, newdim=newdim)
+        assert dim not in result.dims
+        assert newdim in result.dims
+        assert xarray_scipy.signal._get_length(result, "frequency") == n
+
+    def test_ifft(self, signal, dask):
+        n = 100
+        dim = "time"
+        newdim = "frequency"
+        if dask:
+            signal = signal.chunk({"channel": 1})
+        newspectrum = xarray_scipy.signal.fft(signal, n=n, dim=dim, newdim=newdim)
+        newsignal = xarray_scipy.signal.ifft(newspectrum, n=n, dim=newdim, newdim=dim)
+        assert dim in newsignal.dims
+        assert newdim not in newsignal.dims
+        assert xarray_scipy.signal._get_length(newsignal, "time") == n
+
+    def test_fft__dask_raises_main_axis(self, signal):
+        """For the FFT chunking along the main axis is not permitted. Dask will raise."""
+        n = 100
+        dim = "time"
+        newdim = "frequency"
+        signal = signal.chunk({"time": 50})
+        with pytest.raises(ValueError):
+            result = xarray_scipy.signal.fft(signal, n=n, dim=dim, newdim=newdim)
 
 
 def test_hilbert():

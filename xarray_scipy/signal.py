@@ -1,4 +1,5 @@
 from typing import List, Union
+import dask.array.fft
 import numpy as np
 import scipy.signal
 import xarray as xr
@@ -8,6 +9,11 @@ def _keep_attrs(keep_attrs):
     if keep_attrs is None:
         keep_attrs = xr.core.options._get_keep_attrs(default=False)
     return keep_attrs
+
+
+def _get_length(arr: xr.DataArray, dim: str) -> int:
+    """Fast routine to determine the length of a dimension in a :class:`xr.DataArray`."""
+    return arr.shape[arr.get_axis_num(dim)]
 
 
 def convolve(
@@ -97,6 +103,8 @@ def decimate(
     This function wraps :func:`scipy.signal.decimate`.
     """
 
+    # TODO: recompute coordinates of dim
+
     result = xr.apply_ufunc(
         scipy.signal.decimate,
         x,
@@ -124,6 +132,60 @@ def decimate(
     )
 
     return result
+
+
+def _fft_wrap(fft_func):
+    # TODO make proper decorator
+
+    def func(
+        a: xr.DataArray,
+        dim: str,
+        newdim: str,
+        n: int = None,
+        norm: str = None,
+        keep_attrs=None,
+    ) -> xr.DataArray:
+
+        with_dask = a.chunks is not None
+        func = dask.array.fft.fft if with_dask else np.fft.fft
+
+        kwargs = {
+            "n": n,
+        }
+
+        if with_dask:
+            if norm is not None:
+                raise ValueError("norm is not supported with dask arrays")
+        else:
+            kwargs["norm"] = norm
+
+        result = xr.apply_ufunc(
+            func,
+            a,
+            kwargs=kwargs,
+            input_core_dims=((dim,),),
+            exclude_dims=set([dim]),
+            output_core_dims=((newdim,),),
+            vectorize=False,
+            dask="allowed" if with_dask else "forbidden",
+            keep_attrs=_keep_attrs(keep_attrs),
+        )
+
+        # DFT size
+        n = n if n is not None else _get_length(a, dim)
+
+        # Coordinate spacing along `dim`
+        delta = (a.coords[dim].diff(dim=dim).mean(dim=dim)).data
+
+        # Coordinates for `newdim`
+        result[newdim] = np.fft.fftfreq(n, delta)
+        return result
+
+    return func
+
+
+fft = _fft_wrap(dask.array.fft.fft)
+ifft = _fft_wrap(dask.array.fft.ifft)
 
 
 def hilbert(x: xr.DataArray, dim: str, N: int = None, keep_attrs=None) -> xr.DataArray:
