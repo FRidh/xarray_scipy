@@ -134,7 +134,7 @@ def decimate(
     return result
 
 
-def _fft_wrap(fft_func):
+def _fft_wrap(fft_func, inverse):
     # TODO make proper decorator
 
     def func(
@@ -178,14 +178,16 @@ def _fft_wrap(fft_func):
         delta = (a.coords[dim].diff(dim=dim).mean(dim=dim)).data
 
         # Coordinates for `newdim`
+        if inverse:
+            delta = n * delta
         result[newdim] = np.fft.fftfreq(n, delta)
         return result
 
     return func
 
 
-fft = _fft_wrap(dask.array.fft.fft)
-ifft = _fft_wrap(dask.array.fft.ifft)
+fft = _fft_wrap(dask.array.fft.fft, inverse=False)
+ifft = _fft_wrap(dask.array.fft.ifft, inverse=True)
 
 
 def hilbert(x: xr.DataArray, dim: str, N: int = None, keep_attrs=None) -> xr.DataArray:

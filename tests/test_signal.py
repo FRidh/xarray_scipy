@@ -347,6 +347,21 @@ class TestFFT:
         assert newdim not in newsignal.dims
         assert xarray_scipy.signal._get_length(newsignal, "time") == n
 
+    def test_ifft_full(self, signal, dask):
+        n = None
+        dim = "time"
+        newdim = "frequency"
+        if dask:
+            signal = signal.chunk({"channel": 1})
+        newspectrum = xarray_scipy.signal.fft(signal, n=n, dim=dim, newdim=newdim)
+        newsignal = xarray_scipy.signal.ifft(newspectrum, n=n, dim=newdim, newdim=dim)
+        assert dim in newsignal.dims
+        assert newdim not in newsignal.dims
+        assert xarray_scipy.signal._get_length(
+            signal, "time"
+        ) == xarray_scipy.signal._get_length(newsignal, "time")
+        assert signal.coords["time"] == newsignal.coords["time"]
+
     def test_fft__dask_raises_main_axis(self, signal):
         """For the FFT chunking along the main axis is not permitted. Dask will raise."""
         n = 100
