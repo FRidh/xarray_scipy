@@ -310,6 +310,11 @@ def test_peak_widths__multiple_peaks_3d(signal, bandwidth):
 
 
 class TestFFT:
+    @pytest.fixture(params=[None, 99, 100, 101, 102])
+    def n(self, request):
+        """FFT size"""
+        return request.param
+
     @pytest.fixture
     def signal(self):
         duration = 10.0
@@ -324,8 +329,7 @@ class TestFFT:
         ).expand_dims("channel")
         return signal
 
-    def test_fft(self, signal, dask):
-        n = 100
+    def test_fft(self, signal, dask, n):
         dim = "time"
         newdim = "frequency"
         if dask:
@@ -333,10 +337,11 @@ class TestFFT:
         result = xarray_scipy.signal.fft(signal, n=n, dim=dim, newdim=newdim)
         assert dim not in result.dims
         assert newdim in result.dims
+        if n is None:
+            n = xarray_scipy.signal._get_length(signal, "time")
         assert xarray_scipy.signal._get_length(result, "frequency") == n
 
-    def test_ifft(self, signal, dask):
-        n = 100
+    def test_ifft(self, signal, dask, n):
         dim = "time"
         newdim = "frequency"
         if dask:
@@ -345,6 +350,8 @@ class TestFFT:
         newsignal = xarray_scipy.signal.ifft(newspectrum, n=n, dim=newdim, newdim=dim)
         assert dim in newsignal.dims
         assert newdim not in newsignal.dims
+        if n is None:
+            n = xarray_scipy.signal._get_length(signal, "time")
         assert xarray_scipy.signal._get_length(newsignal, "time") == n
 
     def test_ifft_full(self, signal, dask):
@@ -370,6 +377,60 @@ class TestFFT:
         signal = signal.chunk({"time": 50})
         with pytest.raises(ValueError):
             result = xarray_scipy.signal.fft(signal, n=n, dim=dim, newdim=newdim)
+
+    def test_rfft(self, signal, dask, n):
+        dim = "time"
+        newdim = "frequency"
+        if dask:
+            signal = signal.chunk({"channel": 1})
+        result = xarray_scipy.signal.rfft(signal, n=n, dim=dim, newdim=newdim)
+        assert dim not in result.dims
+        assert newdim in result.dims
+        if n is None:
+            n = xarray_scipy.signal._get_length(signal, "time")
+        assert xarray_scipy.signal._get_length(result, "frequency") == n // 2 + 1
+
+    def test_irfft(self, signal, dask, n):
+        dim = "time"
+        newdim = "frequency"
+        if dask:
+            signal = signal.chunk({"channel": 1})
+        newspectrum = xarray_scipy.signal.rfft(signal, n=n, dim=dim, newdim=newdim)
+        newsignal = xarray_scipy.signal.irfft(newspectrum, dim=newdim, newdim=dim)
+        assert dim in newsignal.dims
+        assert newdim not in newsignal.dims
+        if n is None:
+            n = xarray_scipy.signal._get_length(signal, "time")
+        assert xarray_scipy.signal._get_length(newsignal, "time") == n // 2 * 2
+        assert signal.coords["time"] == newsignal.coords["time"]
+
+    def test_hfft(self, signal, dask, n):
+        dim = "time"
+        newdim = "frequency"
+        if dask:
+            signal = signal.chunk({"channel": 1})
+        result = xarray_scipy.signal.hfft(signal, n=n, dim=dim, newdim=newdim)
+        assert dim not in result.dims
+        assert newdim in result.dims
+        if n is None:
+            n = xarray_scipy.signal._get_length(signal, "time")
+            n = (n - 1) * 2
+        assert xarray_scipy.signal._get_length(result, "frequency") == n
+
+    def test_ihfft(self, signal, dask, n):
+        dim = "time"
+        newdim = "frequency"
+        if dask:
+            signal = signal.chunk({"channel": 1})
+        newspectrum = xarray_scipy.signal.hfft(signal, dim=dim, newdim=newdim)
+        newsignal = xarray_scipy.signal.ihfft(newspectrum, n=n, dim=newdim, newdim=dim)
+        assert dim in newsignal.dims
+        assert newdim not in newsignal.dims
+        if n is None:
+            n = xarray_scipy.signal._get_length(signal, "time")
+            n = (n - 1) * 2
+        assert xarray_scipy.signal._get_length(newsignal, "time") == n // 2 + 1
+        assert signal.coords["time"] == newsignal.coords["time"]
 
 
 def test_hilbert():

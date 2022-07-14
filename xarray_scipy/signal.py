@@ -134,8 +134,11 @@ def decimate(
     return result
 
 
-def _fft_wrap(fft_func, inverse):
+def _fft_wrap(fft_kind, inverse, real=False, hermitian=False):
     # TODO make proper decorator
+
+    if real and hermitian:
+        raise ValueError("FFT has to be real, hermitian or neither but not both.")
 
     def func(
         a: xr.DataArray,
@@ -147,7 +150,11 @@ def _fft_wrap(fft_func, inverse):
     ) -> xr.DataArray:
 
         with_dask = a.chunks is not None
-        func = dask.array.fft.fft if with_dask else np.fft.fft
+        func = (
+            getattr(dask.array.fft, fft_kind)
+            if with_dask
+            else getattr(np.fft, fft_kind)
+        )
 
         kwargs = {
             "n": n,
@@ -172,22 +179,45 @@ def _fft_wrap(fft_func, inverse):
         )
 
         # DFT size
-        n = n if n is not None else _get_length(a, dim)
+        ndim = n if n is not None else _get_length(a, dim)
 
         # Coordinate spacing along `dim`
         delta = (a.coords[dim].diff(dim=dim).mean(dim=dim)).data
 
+        # Determine which function to use to compute the coordinates
+        # and whether the amount of coordinates needs to be adjusted.
+        if real and not inverse:
+            func = np.fft.rfftfreq
+        elif real and inverse:
+            func = np.fft.fftfreq
+            ndim = (ndim - 1) * 2
+        elif hermitian and not inverse:
+            func = np.fft.fftfreq
+            if n is None:
+                ndim = (ndim - 1) * 2
+        elif hermitian and inverse:
+            func = np.fft.rfftfreq
+        else:
+            func = np.fft.fftfreq
+
         # Coordinates for `newdim`
         if inverse:
-            delta = n * delta
-        result[newdim] = np.fft.fftfreq(n, delta)
+            delta = ndim * delta
+
+        result[newdim] = func(ndim, delta)
         return result
 
     return func
 
 
-fft = _fft_wrap(dask.array.fft.fft, inverse=False)
-ifft = _fft_wrap(dask.array.fft.ifft, inverse=True)
+fft = _fft_wrap("fft", inverse=False)
+ifft = _fft_wrap("ifft", inverse=True)
+
+rfft = _fft_wrap("rfft", inverse=False, real=True)
+irfft = _fft_wrap("irfft", inverse=True, real=True)
+
+hfft = _fft_wrap("hfft", inverse=False, hermitian=True)
+ihfft = _fft_wrap("ihfft", inverse=True, hermitian=True)
 
 
 def hilbert(x: xr.DataArray, dim: str, N: int = None, keep_attrs=None) -> xr.DataArray:
