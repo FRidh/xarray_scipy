@@ -1,4 +1,5 @@
-from typing import List, Union
+import collections.abc
+from typing import List, Tuple, Union
 import dask.array.fft
 import numpy as np
 import scipy.signal
@@ -134,7 +135,9 @@ def decimate(
     return result
 
 
-def _fft_wrap(fft_kind, inverse, real=False, hermitian=False):
+def _fft_wrap(
+    fft_kind: str, inverse: bool, real: bool = False, hermitian: bool = False
+):
     # TODO make proper decorator
 
     if real and hermitian:
@@ -150,11 +153,8 @@ def _fft_wrap(fft_kind, inverse, real=False, hermitian=False):
     ) -> xr.DataArray:
 
         with_dask = a.chunks is not None
-        func = (
-            getattr(dask.array.fft, fft_kind)
-            if with_dask
-            else getattr(np.fft, fft_kind)
-        )
+        lib = dask.array.fft if with_dask else np.fft
+        func = getattr(lib, fft_kind)
 
         kwargs = {
             "n": n,
@@ -204,7 +204,7 @@ def _fft_wrap(fft_kind, inverse, real=False, hermitian=False):
         if inverse:
             delta = ndim * delta
 
-        result[newdim] = func(ndim, delta)
+        result = result.assign_coords({newdim: func(ndim, delta)})
         return result
 
     return func
