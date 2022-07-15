@@ -204,6 +204,9 @@ def _fft_wrap(
         if inverse:
             delta = ndim * delta
 
+        if newdim in result.coords:
+            raise ValueError(f"Coordinates already exist for dimension: {newdim}")
+
         result = result.assign_coords({newdim: func(ndim, delta)})
         return result
 
