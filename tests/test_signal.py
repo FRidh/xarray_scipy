@@ -433,6 +433,34 @@ class TestFFT:
         assert signal.coords["time"] == newsignal.coords["time"]
 
 
+class TestFFTShift:
+    @pytest.fixture
+    def signal(self):
+        duration = 10.0
+        fs = 8000.0
+        nsamples = int(fs * duration)
+        f = 100.0
+        A = 2.0
+        dim = "time"
+        signal = A * np.sin(2.0 * np.pi * f * np.arange(nsamples) / fs)
+        signal = xr.DataArray(
+            signal, dims=[dim], coords={dim: np.arange(nsamples)}
+        ).expand_dims("channel")
+        return signal
+
+    @pytest.fixture
+    def spectrum(self, signal):
+        return xarray_scipy.signal.fft(signal, dim="time", newdim="frequency")
+
+    def test_fftshift(self, spectrum):
+        shifted = xarray_scipy.signal.fftshift(spectrum, dims=["frequency"])
+        assert "frequency" in shifted.dims
+
+    def test_ifftshift(self, spectrum):
+        shifted = xarray_scipy.signal.ifftshift(spectrum, dims=["frequency"])
+        assert "frequency" in shifted.dims
+
+
 def test_hilbert():
 
     duration = 10.0

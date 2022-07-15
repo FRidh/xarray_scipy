@@ -220,6 +220,39 @@ hfft = _fft_wrap("hfft", inverse=False, hermitian=True)
 ihfft = _fft_wrap("ihfft", inverse=True, hermitian=True)
 
 
+def _fftshift_wrap(fftshift_kind: str) -> collections.abc.Callable:
+    def func(x: xr.DataArray, dims: Tuple) -> xr.DataArray:
+
+        if not isinstance(dims, collections.abc.Iterable) or isinstance(dims, str):
+            raise ValueError("dims needs to be an iterable of strings")
+
+        dims = tuple(dims)
+
+        with_dask = x.chunks is not None
+        lib = dask.array.fft if with_dask else np.fft
+        func = getattr(lib, fftshift_kind)
+
+        # Shift the values of our array
+        result = xr.apply_ufunc(
+            func,
+            x,
+            input_core_dims=(dims,),
+            output_core_dims=(dims,),
+        )
+
+        # And shift also our coordinates
+        for dim in dims:
+            result.coords[dim] = func(result.coords[dim])
+
+        return result
+
+    return func
+
+
+fftshift = _fftshift_wrap("fftshift")
+ifftshift = _fftshift_wrap("ifftshift")
+
+
 def hilbert(x: xr.DataArray, dim: str, N: int = None, keep_attrs=None) -> xr.DataArray:
     """Hilbert transform.
 
