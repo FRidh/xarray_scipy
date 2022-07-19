@@ -5,6 +5,7 @@ import xarray as xr
 import pytest
 import xarray.testing
 import xarray_scipy.signal
+import scipy.signal
 
 from xarray_scipy.signal import (
     _compute_delta,
@@ -22,6 +23,8 @@ from xarray_scipy.signal import (
     fftconvolve,
     hilbert,
     peak_widths,
+    sosfilt,
+    sosfiltfilt,
 )
 
 
@@ -577,3 +580,51 @@ class TestHilbert:
         result = hilbert(signal, N=N, dim=dim)
         assert len(result) == N
         assert dim not in result.coords
+
+
+class TestSosFilt:
+    @pytest.fixture(params=[True, False])
+    def sosdims(self, request):
+        return request.param
+
+    @pytest.fixture
+    def sos(self, sosdims):
+        sos = scipy.signal.butter(N=4, Wn=0.3, btype="low", output="sos")
+        if sosfilt:
+            sos = xr.DataArray(sos, dims=["section", "coefficient"])
+        return sos
+
+    def test_sosfilt(self, signal, sos, nchannels):
+        dim = "time"
+        result = sosfilt(sos, signal, dim=dim)
+        assert dim in result.dims
+        assert dim in result.coords
+        assert _get_length(result, dim) == _get_length(result, dim)
+        if nchannels is not None:
+            assert "channel" in result.dims
+            assert "channel" in result.coords
+
+
+class TestSosFiltFilt:
+    @pytest.fixture(params=[True, False])
+    def sosdims(self, request):
+        return request.param
+
+    @pytest.fixture
+    def sos(self, sosdims):
+        sos = scipy.signal.butter(N=4, Wn=0.3, btype="low", output="sos")
+        if sosfilt:
+            sos = xr.DataArray(sos, dims=["section", "coefficient"])
+        return sos
+
+    def test_sosfiltfilt(self, signal, sos, nchannels):
+        dim = "time"
+        result = sosfiltfilt(sos, signal, dim=dim)
+        assert dim in result.dims
+        assert dim in result.coords
+        assert _get_length(result, dim) == _get_length(result, dim)
+        if nchannels is not None:
+            assert "channel" in result.dims
+            assert "channel" in result.coords
+
+    # TODO: add test coverage for padtype and padlen

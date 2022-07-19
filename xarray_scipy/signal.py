@@ -371,3 +371,58 @@ def resample(x, num, dim: str, window=None, domain="time", keep_attrs=None):
         keep_attrs=_keep_attrs(keep_attrs),
     )
     return result
+
+
+def sosfilt(sos, x, dim, zi=None):
+
+    result = xr.apply_ufunc(
+        scipy.signal.sosfilt,
+        sos,
+        x,
+        kwargs={
+            "zi": zi,
+        },
+        input_core_dims=(
+            ("section", "coefficient"),
+            (dim,),
+        ),
+        output_core_dims=((dim,),),
+        dask="parallelized",
+        dask_gufunc_kwargs={
+            "allow_rechunk": True,
+            "output_sizes": {
+                dim: _get_length(x, dim),
+            },
+        },
+        output_dtypes=(x.dtype,),
+    )
+
+    return result
+
+
+def sosfiltfilt(sos, x, dim, padtype="odd", padlen=None):
+
+    result = xr.apply_ufunc(
+        scipy.signal.sosfiltfilt,
+        sos,
+        x,
+        kwargs={
+            "padtype": padtype,
+            "padlen": padlen,
+        },
+        input_core_dims=(
+            ("section", "coefficient"),
+            (dim,),
+        ),
+        output_core_dims=((dim,),),
+        dask="parallelized",
+        dask_gufunc_kwargs={
+            "allow_rechunk": True,
+            "output_sizes": {
+                dim: _get_length(x, dim),
+            },
+        },
+        output_dtypes=(x.dtype,),
+    )
+
+    return result
