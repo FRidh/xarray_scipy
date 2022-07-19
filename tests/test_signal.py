@@ -542,42 +542,38 @@ class TestFFTShift:
 
 
 class TestHilbert:
-    def test_hilbert(self):
-        duration = 10.0
-        fs = 8000.0
-        nsamples = int(fs * duration)
-        f = 100.0
-        A = 2.0
-        signal = A * np.sin(2.0 * np.pi * f * np.arange(nsamples) / fs)
-        signal = xr.DataArray(signal, dims=["time"])
-        result = hilbert(signal, dim="time")
-        assert np.allclose(np.abs(result).data, np.ones(nsamples) * A)
+    @pytest.fixture
+    def amplitude(self):
+        return 2.0
 
-    def test_hilbert__N(self):
+    @pytest.fixture
+    def dim(self):
+        return "time"
+
+    @pytest.fixture
+    def signal(self, dim, amplitude):
         duration = 10.0
         fs = 8000.0
         nsamples = int(fs * duration)
         f = 100.0
-        A = 2.0
-        N = 100
-        dim = "time"
-        signal = A * np.sin(2.0 * np.pi * f * np.arange(nsamples) / fs)
+        signal = amplitude * np.sin(2.0 * np.pi * f * np.arange(nsamples) / fs)
         signal = xr.DataArray(signal, dims=[dim], coords={dim: np.arange(nsamples)})
+        return signal
+
+    def test_hilbert(self, signal, amplitude, dim):
+        result = hilbert(signal, dim=dim)
+        assert np.allclose(np.abs(result).data, np.ones_like(signal) * amplitude)
+
+    def test_hilbert__N(self, signal, dim):
+        N = 100
         result = hilbert(signal, N=N, dim=dim)
         assert len(result) == N
         assert dim in result.coords
 
-    def test_hilbert__N_without_coords(self):
-
-        duration = 10.0
-        fs = 8000.0
-        nsamples = int(fs * duration)
-        f = 100.0
-        A = 2.0
+    def test_hilbert__N_without_coords(self, signal, dim):
+        del signal[dim]
+        assert dim not in signal.coords
         N = 100
-        dim = "time"
-        signal = A * np.sin(2.0 * np.pi * f * np.arange(nsamples) / fs)
-        signal = xr.DataArray(signal, dims=[dim])
         result = hilbert(signal, N=N, dim=dim)
         assert len(result) == N
         assert dim not in result.coords
