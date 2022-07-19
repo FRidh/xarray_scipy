@@ -372,7 +372,14 @@ def peak_widths(x: xr.DataArray, peaks: xr.DataArray, dim: str, **kwargs):
 
 
 @_wrap(scipy.signal.resample)
-def resample(x, num, dim: str, window=None, domain="time", keep_attrs=None):
+def resample(
+    x: xr.DataArray,
+    num: int,
+    dim: str,
+    window=None,
+    domain: str = "time",
+    keep_attrs=None,
+) -> xr.DataArray:
     # TODO: support t=None
     result = xr.apply_ufunc(
         scipy.signal.resample,
@@ -394,7 +401,9 @@ def resample(x, num, dim: str, window=None, domain="time", keep_attrs=None):
 
 
 @_wrap(scipy.signal.sosfilt)
-def sosfilt(sos, x, dim, zi=None):
+def sosfilt(
+    sos: np.ndarray, x: xr.DataArray, dim: str, zi: np.ndarray = None
+) -> xr.DataArray:
 
     result = xr.apply_ufunc(
         scipy.signal.sosfilt,
@@ -422,7 +431,9 @@ def sosfilt(sos, x, dim, zi=None):
 
 
 @_wrap(scipy.signal.sosfiltfilt)
-def sosfiltfilt(sos, x, dim, padtype="odd", padlen=None):
+def sosfiltfilt(
+    sos: np.ndarray, x: xr.DataArray, dim: str, padtype: str = "odd", padlen: int = None
+) -> xr.DataArray:
 
     result = xr.apply_ufunc(
         scipy.signal.sosfiltfilt,
