@@ -2,6 +2,7 @@ import collections.abc
 from typing import List, Tuple, Union
 import dask.array.fft
 import numpy as np
+import scipy.fft  # pylint: disable=no-name-in-module
 import scipy.signal
 import xarray as xr
 
@@ -21,12 +22,23 @@ def _get_length(arr: xr.DataArray, dim: str) -> int:
     return arr.shape[arr.get_axis_num(dim)]
 
 
+def _wrap(func_scipy):
+    def decorator(func):
+        func.__name__ = func_scipy.__name__
+        func.__doc__ = func_scipy.__doc__
+        return func
+
+    return decorator
+
+
+@_wrap(scipy.signal.convolve)
 def convolve(
     in1: xr.DataArray, in2: xr.DataArray, mode: str = "full", method: str = "auto"
 ) -> xr.DataArray:
     return _convolve(in1, in2, dims=None, mode=mode, method=method)
 
 
+@_wrap(scipy.signal.fftconvolve)
 def fftconvolve(
     in1: xr.DataArray,
     in2: xr.DataArray,
@@ -94,6 +106,7 @@ def _convolve(
     return result
 
 
+@_wrap(scipy.signal.decimate)
 def decimate(
     x: xr.DataArray,
     q: int,
@@ -213,6 +226,8 @@ def _fft_wrap(
         result = result.assign_coords({newdim: func(ndim, delta)})
         return result
 
+    func_scipy = getattr(scipy.fft, fft_kind)  # pylint: disable=no-member
+    func = _wrap(func_scipy)(func)
     return func
 
 
@@ -252,6 +267,8 @@ def _fftshift_wrap(fftshift_kind: str) -> collections.abc.Callable:
 
         return result
 
+    func_scipy = getattr(scipy.fft, fftshift_kind)  # pylint: disable=no-member
+    func = _wrap(func_scipy)(func)
     return func
 
 
@@ -259,6 +276,7 @@ fftshift = _fftshift_wrap("fftshift")
 ifftshift = _fftshift_wrap("ifftshift")
 
 
+@_wrap(scipy.signal.hilbert)
 def hilbert(x: xr.DataArray, dim: str, N: int = None, keep_attrs=None) -> xr.DataArray:
     """Hilbert transform.
 
@@ -309,6 +327,7 @@ def hilbert(x: xr.DataArray, dim: str, N: int = None, keep_attrs=None) -> xr.Dat
     return result
 
 
+@_wrap(scipy.signal.peak_widths)
 def peak_widths(x: xr.DataArray, peaks: xr.DataArray, dim: str, **kwargs):
     """Calculate the width of each peak in a signal.
 
@@ -352,6 +371,7 @@ def peak_widths(x: xr.DataArray, peaks: xr.DataArray, dim: str, **kwargs):
     return result
 
 
+@_wrap(scipy.signal.resample)
 def resample(x, num, dim: str, window=None, domain="time", keep_attrs=None):
     # TODO: support t=None
     result = xr.apply_ufunc(
@@ -373,6 +393,7 @@ def resample(x, num, dim: str, window=None, domain="time", keep_attrs=None):
     return result
 
 
+@_wrap(scipy.signal.sosfilt)
 def sosfilt(sos, x, dim, zi=None):
 
     result = xr.apply_ufunc(
@@ -400,6 +421,7 @@ def sosfilt(sos, x, dim, zi=None):
     return result
 
 
+@_wrap(scipy.signal.sosfiltfilt)
 def sosfiltfilt(sos, x, dim, padtype="odd", padlen=None):
 
     result = xr.apply_ufunc(
