@@ -12,6 +12,10 @@ def _keep_attrs(keep_attrs):
     return keep_attrs
 
 
+def _compute_delta(arr: xr.DataArray, dim: str):
+    return abs((arr.coords[dim].diff(dim=dim).mean(dim=dim)).data)
+
+
 def _get_length(arr: xr.DataArray, dim: str) -> int:
     """Fast routine to determine the length of a dimension in a :class:`xr.DataArray`."""
     return arr.shape[arr.get_axis_num(dim)]
@@ -182,7 +186,7 @@ def _fft_wrap(
         ndim = n if n is not None else _get_length(a, dim)
 
         # Coordinate spacing along `dim`
-        delta = (a.coords[dim].diff(dim=dim).mean(dim=dim)).data
+        delta = _compute_delta(a, dim)
 
         # Determine which function to use to compute the coordinates
         # and whether the amount of coordinates needs to be adjusted.
@@ -190,7 +194,8 @@ def _fft_wrap(
             func = np.fft.rfftfreq
         elif real and inverse:
             func = np.fft.fftfreq
-            ndim = (ndim - 1) * 2
+            if n is None:
+                ndim = (ndim - 1) * 2
         elif hermitian and not inverse:
             func = np.fft.fftfreq
             if n is None:
@@ -200,9 +205,7 @@ def _fft_wrap(
         else:
             func = np.fft.fftfreq
 
-        # Coordinates for `newdim`
-        if inverse:
-            delta = ndim * delta
+        delta = delta / ndim
 
         if newdim in result.coords:
             raise ValueError(f"Coordinates already exist for dimension: {newdim}")
